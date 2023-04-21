@@ -1,0 +1,39 @@
+% Clean up county codes that are NaN’s in the source file
+nyhmda2015.county_code(isnan(nyhmda2015.county_code)) = 0;
+
+% Preliminary Data cleansing: loan_purpose = 1 (Home Purchase), owner_occupancy = 1 (Owner-occupied as a principal dwelling), property_type = 1 (One-to-four family dwelling, applicant_sex ~= 4 (Not applicable), county_code ~= 0 (blanks), action_taken ~= 4 (application withdrawn by applicant), action_taken ~= 5 (file closed for incompleteness)
+idx = nyhmda2015.loan_purpose == 1 & nyhmda2015.owner_occupancy == 1 & nyhmda2015.property_type == 1 & nyhmda2015.applicant_sex ~= 4 & nyhmda2015.county_code ~= 0 & nyhmda2015.action_taken ~= 4 & nyhmda2015.action_taken ~= 5;
+nyhmda_trim = nyhmda2015(idx,:);
+
+% Add denial flag (1 = Denied, 0 = Approved)
+denial_idx = nyhmda_trim.action_taken == 3 | nyhmda_trim.action_taken == 7;
+nyhmda_trim.denial_flag(denial_idx) = 1;
+
+
+%Clean up NaN’s from Minority populations
+nyhmda_trim.minority_population(isnan(nyhmda_trim.minority_population)) = 0;
+
+%Create a table of unique county codes
+county_code_unique = unique(nyhmda_trim.county_code); 
+county_code_table = table(county_code_unique);
+
+% Use county code table to create identify county_code’s that have at least a denial percent of 10% (internally created threshold) and a minority population of >= 50%
+county_code_table.denial_count = splitapply(@sum, nyhmda_trim.denial_flag, findgroups(nyhmda_trim.county_code));
+county_code_table.total_count = splitapply(@numel, nyhmda_trim.denial_flag, findgroups(nyhmda_trim.county_code));
+county_code_table.denial_pct = (county_code_table.denial_count)./(county_code_table.total_count);
+county_code_table.avg_min_pop = splitapply(@sum, nyhmda_trim.minority_population, findgroups(nyhmda_trim.county_code)) ./ splitapply(@numel, nyhmda_trim.minority_population, findgroups(nyhmda_trim.county_code)) ./ 100;
+algo_idx = county_code_table.denial_pct >= 0.1 & county_code_table.avg_min_pop >= 0.5;
+county_code_table(algo_idx,:);
+county_code_table_g = county_code_table(algo_idx,:);
+%Replicate a version of nyhmda_trim for use in generalizing
+nyhmda_trim_g = nyhmda_trim;
+
+%Generalizing race (Asian & Black or African American & Native American)
+nyhmda_trim_g.applicant_race_1(nyhmda_trim_g.applicant_race_1 == 2 | nyhmda_trim_g.applicant_race_1 == 3 | nyhmda_trim_g.applicant_race_1 == 1) = 7;
+
+
+%Generalizing County Codes (where county_code Denial >10% and minority
+%population % > 50%) by using the is_member function
+nyhmda_trim_g.vulnerable_county_code = nyhmda_trim_g.county_code;
+nyhmda_trim_g.vulnerable_county_code(ismember(nyhmda_trim_g.vulnerable_county_code, county_code_table_g.county_code_unique)) = 0;
+nyhmda_trim_g.county_code = nyhmda_trim_g.vulnerable_county_code;
