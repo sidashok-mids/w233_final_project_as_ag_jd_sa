@@ -1,0 +1,96 @@
+% Functions used throughout the Matlab files: Taken from our team's Lab 2
+
+function [k, equivalence_classes] = kAnonymity_Analyze(data_table, quasi_identifiers)
+    % Let's first get the unique rows when the table is projected only on
+    % quasi identifiers. This will yield the equivalence classes as a data
+    % table (and will return it as a second return value, if the function
+    % call requested two return values)
+    equivalence_classes = unique(data_table(:,quasi_identifiers), 'rows');
+    % We will now augment this table with a new column, called "k" that
+    % counts for each equivalence class, the number of rows in the original
+    % table "data_table" that belong to that equivalence class.
+    equivalence_classes.k(:) = NaN;
+    for eqv_class_id = 1:size(equivalence_classes, 1)
+        % these are the values of the qids for the equivalence class
+        eqv_class = equivalence_classes{eqv_class_id,quasi_identifiers};
+        equivalence_classes.k(eqv_class_id) = sum(all(data_table{:,quasi_identifiers} == eqv_class, 2));
+    end
+    k = min(equivalence_classes.k);
+end
+
+function [t, equivalence_classes] = EMD_ordered_distance(data_table, quasi_identifiers, sensitive_column)
+    % Let's first get the unique rows when the table is projected only on
+    % quasi identifiers. This will yield the equivalence classes as a data
+    % table (and will return it as a second return value, if the function
+    % call requested two return values)
+    equivalence_classes = unique(data_table(:,quasi_identifiers), 'rows');
+    
+    % Let's first get the distribution of the sensitive attribute from the
+    % whole table (the global distirbution)
+    sensitive_values_whole_table = data_table{:, sensitive_column};
+    unique_levels = unique(sensitive_values_whole_table);
+    if ~issorted(unique_levels)
+        error("Not sorted");
+    end
+    % unique_levels is not just supposed to contain all unique levels of
+    % the sensitive variable, it must be in sorted order.
+
+    [cts] = hist(sensitive_values_whole_table, unique(sensitive_values_whole_table));
+    p_whole_table = cts./sum(cts);
+    % We will use this distribution to compare it to each class's
+    % distribution
+    
+    % We will now augment this table a new column named EMD.
+    % This column will contain the EMD value (using ordered distance) for 
+    % each equivalence class
+    equivalence_classes.EMD(:) = NaN; %pre allocate
+    for eqv_class_id = 1:size(equivalence_classes, 1)
+        eqv_class = equivalence_classes{eqv_class_id,quasi_identifiers};
+        % Let's extract the sensitive values from the class only
+        ii = data_table{:,quasi_identifiers} == eqv_class;
+        row_ids = all(ii,2);
+        % This is the vector of sensitive values from the equivalence class
+        sensitive_values_from_class = data_table{row_ids, sensitive_column};
+        
+        % and here's the distribution of the sensitive values from the
+        % class only (the local distirbution)
+        [cts]=hist(sensitive_values_from_class,unique(sensitive_values_whole_table));
+        p_class = cts ./ sum(cts);
+        
+        % General comment: note that unique() also sorts the values so that
+        % we have the probabilities of values in sorted order
+        % Another comment: we calculate the local distribution with the
+        % bins as in the global distribution (so that the lengths of the
+        % vectors p_class and p_whole_table match).
+        
+        % TODO: calculate the EMD (assuming ordered ground distance)
+        % between p_class and p_whole_table.
+
+        %Algorithm for an ordered ground EMD: The amount of probability thta must
+        %move between levels i and i+1 is the difference between the
+        %partial sums of p_whole_table and p_class up to i, that is,
+        %|P_wt(X<=i)-P_c(X<=i)|. So, add these up, and then divide by the
+        %number of levels -1 to scale the distance between the endpoints to
+        %be 1.
+
+        moved = 0;
+        ps_wt = 0;
+        ps_class =0;
+        %cts
+        %size(cts)
+        for i = 1:numel(cts)
+            ps_wt = ps_wt + p_whole_table(i);
+            ps_class = ps_class + p_class(i);
+            moved = moved + abs(ps_wt - ps_class);
+        end
+
+
+        %error("Missing response for problem 3 (a)");
+        equivalence_classes.EMD(eqv_class_id) = moved/(numel(unique_levels)-1); % TODO: don't forget to assign it here
+        
+    end
+    
+    % TODO: Calculate the value for the return parameter t
+    %error("Missing response for problem 3 (a)");
+    t = max(equivalence_classes.EMD); % TODO: Don't forget to assign it here
+end
