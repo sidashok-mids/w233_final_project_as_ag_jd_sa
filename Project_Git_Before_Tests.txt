@@ -1,0 +1,78 @@
+%% Measuring for Privacy - Before generalization
+
+%% Breaking dataset down by EC
+qID = {'applicant_race_1','applicant_sex'};
+eqv_classes = unique(nyhmda_trim(:, [qID]), "rows");
+num_eqv_classes = size(eqv_classes, 1);
+fprintf("Number of equivalence classes: %d\n", num_eqv_classes);
+%% Running K-Anonymity Tests - Before generalization
+%% Getting the K values for each EC
+qID = {'applicant_race_1','applicant_sex'};
+eqv_classes.k(:) = NaN;
+for eqv_class_id = 1:size(eqv_classes, 1)
+    % Get the values of the quasi-identifiers for this equivalence class.
+    % iterates over each row.  
+    eqv_class = eqv_classes{eqv_class_id,qID};
+    % extracts the values of the QID's (gender and race)
+    eqv_classes.k(eqv_class_id) = sum(all(nyhmda_trim{:,qID} == eqv_class, 2));
+    
+end
+eqv_classes % just to show it on the right side
+%% Using the K-Anonymity Analyze Function
+qID = {'applicant_race_1','applicant_sex'};
+[k_1c, eqv_classes_1c] = kAnonymity_Analyze(nyhmda_trim, qID);
+qID_string = [sprintf('%s, ',qID{1:end-1}),qID{end}]; % Convert the cell array to some string representation
+fprintf('The table is %d-anonymous qID={%s} (using the function call)\n', k_1c, qID_string)
+%% 
+%% %% T-Closeness testing - Before
+quasi_identifiers = {'applicant_sex', 'county_code', 'co_applicant_race_1', 'co_applicant_sex', 'hoepa_status'};
+
+sensitive_column = 'applicant_race_1';
+
+[t, equivalence_classes] = EMD_ordered_distance(nyhmda_trim, quasi_identifiers, sensitive_column)
+
+% Slift is the ratio of the proportion of benefit denial between protected
+% and unprotected groups
+% Group A: applicant_race_1 is 5 (White)
+groupA = nyhmda_trim((nyhmda_trim.applicant_race_1 == 5), :);
+
+% Group B: applicant_race_1 is 1, 2,3,or8 
+groupB = nyhmda_trim((nyhmda_trim.applicant_race_1 == 1) | (nyhmda_trim.applicant_race_1 == 3) | (nyhmda_trim.applicant_race_1 == 8), :);
+
+% Proportion of action_taken = 3 or 7 in Group A
+proportionA = sum((groupA.action_taken == 3) | (groupA.action_taken == 7)) / height(groupA);
+
+% Proportion of action_taken = 3 or 7 in Group B
+proportionB = sum((groupB.action_taken == 3) | (groupB.action_taken == 7)) / height(groupB);
+
+% Ratio of proportions
+slift = proportionA / proportionB;
+
+fprintf('The Slift is: %.2f\n', slift);
+
+%% Testing for Contrasted Lift (clift)
+%Tests for ratio of the proportion of benefit denial between 2 groups -
+%usually the most advantaged vs least advantaged group - Picked groups by
+%approval rates
+% First iteration - Ran this and got a value of 2.26, proportion of benefit
+% denials is about 2.26 higher for American Indians
+%Group C: applicant_race_1 is 5 (White)
+group_C_idx = nyhmda_trim.applicant_race_1 == 5;
+group_C = nyhmda_trim(group_C_idx, :);
+
+%Group D: applicant_race_1 is 1 (American Indian)
+group_D_idx = nyhmda_trim.applicant_race_1 == 1;
+group_D = nyhmda_trim(group_D_idx, :);
+
+%Calculate proportion of benefit denials for Group C (action_taken is 3 or 7)
+denial_group_C_idx = group_C.action_taken == 3 | group_C.action_taken == 7;
+proportion_denial_group_C = sum(denial_group_C_idx) / height(group_C);
+
+%Calculate proportion of benefit denials for Group D (action_taken is 3 or 7)
+denial_group_D_idx = group_D.action_taken == 3 | group_D.action_taken == 7;
+proportion_denial_group_D = sum(denial_group_D_idx) / height(group_D);
+
+%Calculate contrasted lift (clift)
+clift = proportion_denial_group_D/ proportion_denial_group_C;
+clift
+

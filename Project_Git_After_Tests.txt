@@ -1,0 +1,88 @@
+%% Privacy Tests 
+
+%Running K-Anonymity tests using the same code from above:
+qID_g = {'applicant_race_1', 'applicant_sex', 'county_code', 'co_applicant_race_1'};
+[k_1g, eqv_classes_1g] = kAnonymity_Analyze(nyhmda_trim_g, qID_g);
+qID_string2 = [sprintf('%s, ',qID_g{1:end-1}),qID_g{end}]; % Convert the cell array to some string representation
+fprintf('The table is %d-anonymous qID={%s} (using the function call)\n', k_1g, qID_string2)
+%% %% Breaking generalized dataset down by EC
+qID_g = {'applicant_race_1','applicant_sex'};
+eqv_classes_g = unique(nyhmda_trim_g(:, [qID_g]), "rows");
+num_eqv_classes_g = size(eqv_classes_g, 1);
+fprintf("Number of equivalence classes: %d\n", num_eqv_classes_g);
+%% Running K-Anonymity Tests - After generalization
+%% Getting the K values for each EC
+qID = {'applicant_race_1','applicant_sex'};
+eqv_classes_g.k(:) = NaN;
+for eqv_class_id_g = 1:size(eqv_classes_g, 1)
+    % Get the values of the quasi-identifiers for this equivalence class.
+    % iterates over each row.  
+    eqv_class_g = eqv_classes_g{eqv_class_id_g,qID};
+    % extracts the values of the QID's (gender and race)
+    eqv_classes_g.k(eqv_class_id_g) = sum(all(nyhmda_trim_g{:,qID} == eqv_class_g, 2));
+    
+end
+eqv_classes_g % just to show it on the right side
+%% Using the K-Anonymity Analyze Function
+% Should be 6
+qID = {'applicant_race_1','applicant_sex'};
+[k_1g, eqv_classes_1c] = kAnonymity_Analyze(nyhmda_trim_g, qID);
+qID_string = [sprintf('%s, ',qID{1:end-1}),qID{end}]; % Convert the cell array to some string representation
+fprintf('The table is %d-anonymous qID={%s} (using the function call)\n', k_1g, qID_string)
+%% 
+%% 
+%% T-Closeness testing - After
+quasi_identifiers_g = {'applicant_sex', 'county_code', 'co_applicant_race_1', 'co_applicant_sex', 'hoepa_status'};
+
+sensitive_column_g = 'applicant_race_1';
+
+%% T-Closeness testing (continued) - After
+[t_g, equivalence_classes_g] = EMD_ordered_distance(nyhmda_trim_g, quasi_identifiers_g, sensitive_column_g)
+
+% %% Measuring for discrimination AFter 
+%%Testing out Selection Lift (Slift)
+% Slift is the ratio of the proportion of benefit denial between protected
+% and unprotected groups
+
+% Group A: applicant_race_1 is 5 (White)
+groupA_g = nyhmda_trim_g((nyhmda_trim_g.applicant_race_1 == 5), :);
+
+% Group B: applicant_race_1 is 7 or 8 - Generalized categories
+% Hawaiian/Pac Islander
+groupB_g = nyhmda_trim_g((nyhmda_trim_g.applicant_race_1 == 7) | (nyhmda_trim_g.applicant_race_1 == 8), :);
+
+% Proportion of action_taken = 3 or 7 in Group A
+proportionA_g = sum((groupA_g.action_taken == 3) | (groupA_g.action_taken == 7)) / height(groupA_g);
+
+% Proportion of action_taken = 3 or 7 in Group B
+proportionB_g = sum((groupB_g.action_taken == 3) | (groupB_g.action_taken == 7)) / height(groupB_g);
+
+% Ratio of proportions
+slift_g = proportionA_g / proportionB_g;
+
+fprintf('The Slift is: %.2f\n', slift_g);
+
+%% Testing for Contrasted Lift (clift)
+%Tests for ratio of the proportion of benefit denial between 2 groups -
+%usually the most advantaged vs least advantaged group - Picked groups by
+%approval rates
+% 
+%Group C: applicant_race_1 is 5 (White)
+group_C_idx_g = nyhmda_trim_g.applicant_race_1 == 5;
+group_C_g = nyhmda_trim_g(group_C_idx_g, :);
+
+%Group D: applicant_race_1 is 7 or 8 - Generalized cats
+group_D_idx_g = nyhmda_trim_g.applicant_race_1 == 8;
+group_D_g = nyhmda_trim_g(group_D_idx_g, :);
+
+%Calculate proportion of benefit denials for Group C (action_taken is 3 or 7)
+denial_group_C_idx_g = group_C_g.action_taken == 3 | group_C_g.action_taken == 7;
+proportion_denial_group_C_g = sum(denial_group_C_idx_g) / height(group_C_g);
+
+%Calculate proportion of benefit denials for Group D (action_taken is 3 or 7)
+denial_group_D_idx_g = group_D_g.action_taken == 3 | group_D_g.action_taken == 7;
+proportion_denial_group_D_g = sum(denial_group_D_idx_g) / height(group_D_g);
+
+%Calculate contrasted lift (clift)
+clift_g = proportion_denial_group_D_g/ proportion_denial_group_C_g;
+clift_g

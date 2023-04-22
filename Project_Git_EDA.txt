@@ -1,0 +1,108 @@
+%% Reading the CSV 
+nyhmda2015 = readtable("ny_hmda_2015.csv");
+%% Removing duplicates
+nyhmda2015 = unique(nyhmda2015);
+%% %% Siddharth's data cleaning code
+nyhmda2015.county_code(isnan(nyhmda2015.county_code)) = 0;
+
+idx = nyhmda2015.loan_purpose == 1 & nyhmda2015.owner_occupancy == 1 & nyhmda2015.property_type == 1 & nyhmda2015.applicant_sex ~= 4 & nyhmda2015.county_code ~= 0 & nyhmda2015.action_taken ~= 4 & nyhmda2015.action_taken ~= 5;
+% Action taken not Application withdrawn by applicant, file closed for
+% incompleteness
+nyhmda_trim = nyhmda2015(idx,:);
+
+
+denial_idx = nyhmda_trim.action_taken == 3 | nyhmda_trim.action_taken == 7;
+nyhmda_trim.denial_flag(denial_idx) = 1;
+nyhmda_trim
+%% EDA filtering to calculate overall mortgage approval rates:
+% Filter actions with values 1, 2, or 3
+filter1 = (nyhmda_trim.action_taken >= 1) & (nyhmda_trim.action_taken <= 3);
+actions = nyhmda_trim(filter1, :);
+%% 
+% Calculate the overall approval rate
+freqs = tabulate(actions.action_taken);
+overall_approval_rate = (freqs(1, 2) + freqs(2, 2)) / size(actions, 1);
+disp(["Overall approval rate: ", num2str(overall_approval_rate)]);
+%% % EDA for mortgages by gender - Filter actions with Male or Female applicants
+filter2 = strcmp(actions.applicant_sex_name, "Male") | strcmp(actions.applicant_sex_name, "Female");
+data = actions(filter2, :);
+%% EDA - Gender approval rates continued
+% Split the data into male subset and female subset
+data_male = data(strcmp(data.applicant_sex_name, 'Male'), :);
+disp(['Male: ', num2str(size(data_male, 1))]);
+data_female = data(strcmp(data.applicant_sex_name, 'Female'), :);
+disp(['Female: ', num2str(size(data_female, 1))]);
+%% 
+% Calculate the approval rate of male applicants
+freqs_male = tabulate(data_male.action_taken);
+male_approval_rate = (freqs_male(1, 2) + freqs_male(2, 2)) / size(data_male, 1);
+disp(["Male approval rate: ", num2str(male_approval_rate)]);
+%% 
+% Calculate the approval rate of female applicants
+freqs_female = tabulate(data_female.action_taken);
+female_approval_rate = (freqs_female(1, 2) + freqs_female(2, 2)) / size(data_female, 1);
+disp(["Female approval rate: ", num2str(female_approval_rate)]);
+
+%% 
+% Filter data by removing N/A and Information not provided
+filter4 = strcmp(data.applicant_race_name_1, "White") | ...
+    strcmp(data.applicant_race_name_1, "Asian") | ...
+    strcmp(data.applicant_race_name_1, "Black or African American") | ...
+    strcmp(data.applicant_race_name_1, "American Indian or Alaska Native") | ...
+    strcmp(data.applicant_race_name_1, "Native Hawaiian or Other Pacific Islander");
+data = data(filter4, :);
+
+%% 
+% Split the data into subsets by race
+data_White = data(strcmp(data.applicant_race_name_1, "White"), :);
+disp(["White: ", num2str(size(data_White, 1))]);
+data_Asian = data(strcmp(data.applicant_race_name_1, "Asian"), :);
+disp(["Asian: ", num2str(size(data_Asian, 1))]);
+data_Black_or_African_American = data(strcmp(data.applicant_race_name_1, "Black or African American"), :);
+disp(["Black or African American: ", num2str(size(data_Black_or_African_American, 1))]);
+data_American_Indian_or_Alaska_Native = data(strcmp(data.applicant_race_name_1, 'American Indian or Alaska Native'), :);
+data_Native_Hawaiian_or_Other_Pacific_Islander = data(strcmp(data.applicant_race_name_1, 'Native Hawaiian or Other Pacific Islander'), :);
+%% 
+disp('Size of data_Native_Hawaiian_or_Other_Pacific_Islander:')
+disp(size(data_Native_Hawaiian_or_Other_Pacific_Islander));
+%% 
+% Calculate the approval rate of White applicants
+freqs_White = tabulate(data_White.action_taken);
+approval_rate_White = (freqs_White(1, 2) + freqs_White(2, 2)) / size(data_White, 1);
+disp(['White approval rate: ', num2str(approval_rate_White)]);
+
+% Calculate the approval rate of Asian applicants
+freqs_Asian = tabulate(data_Asian.action_taken);
+approval_rate_Asian = (freqs_Asian(1, 2) + freqs_Asian(2, 2)) / size(data_Asian, 1);
+disp(['Asian approval rate: ', num2str(approval_rate_Asian)]);
+
+% Calculate the approval rate of Black or African_American applicants
+freqs_Black_or_African_American = tabulate(data_Black_or_African_American.action_taken);
+approval_rate_Black_or_African_American = (freqs_Black_or_African_American(1, 2) + freqs_Black_or_African_American(2, 2)) / size(data_Black_or_African_American, 1);
+disp(['Black_or_African_American approval rate: ', num2str(approval_rate_Black_or_African_American)]);
+
+% Calculate the approval rate of American Indian or Alaska Native applicants
+freqs_American_Indian_or_Alaska_Native = tabulate(data_American_Indian_or_Alaska_Native.action_taken);
+approval_rate_American_Indian_or_Alaska_Native = (freqs_American_Indian_or_Alaska_Native(1, 2) + freqs_American_Indian_or_Alaska_Native(2, 2)) / size(data_American_Indian_or_Alaska_Native, 1);
+disp(['American_Indian_or_Alaska_Native approval rate: ', num2str(approval_rate_American_Indian_or_Alaska_Native)]);
+
+% Calculate the approval rate of Native Hawaiian or Other Pacific Islander applicants
+freqs_Native_Hawaiian_or_Other_Pacific_Islander = tabulate(data_Native_Hawaiian_or_Other_Pacific_Islander.action_taken);
+approval_rate_Native_Hawaiian_or_Other_Pacific_Islander = (freqs_Native_Hawaiian_or_Other_Pacific_Islander(1, 2) + freqs_Native_Hawaiian_or_Other_Pacific_Islander(2, 2)) / size(data_Native_Hawaiian_or_Other_Pacific_Islander, 1);
+disp(['Native_Hawaiian_or_Other_Pacific_Islander approval rate: ', num2str(approval_rate_Native_Hawaiian_or_Other_Pacific_Islander)]);
+
+%% 
+% Create a dictionary for race_approval_rates
+race_approval_rates = containers.Map({'White', 'Asian', 'Black', 'Native Amer', 'HI/Pac Isl.'}, ...
+                                     [approval_rate_White, approval_rate_Asian, approval_rate_Black_or_African_American, ...
+                                      approval_rate_American_Indian_or_Alaska_Native, approval_rate_Native_Hawaiian_or_Other_Pacific_Islander]);
+%% 
+% Create a table from the dictionary
+race_keys = race_approval_rates.keys';
+race_values = race_approval_rates.values';
+race_approval_rates_tbl = table(race_keys, race_values, 'VariableNames', {'Race', 'Approval_Rate'});
+%% % Create a bar graph using MATLAB
+figure
+bar(categorical(race_approval_rates_tbl.Race), cell2mat(race_approval_rates_tbl.Approval_Rate))
+xlabel('Race')
+ylabel('Approval Rate')
