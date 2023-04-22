@@ -32,7 +32,7 @@ fprintf('The table is %d-anonymous qID={%s} (using the function call)\n', k_1g, 
 %% 
 %% 
 %% T-Closeness testing - After
-quasi_identifiers_g = {'applicant_sex', 'county_code', 'co_applicant_race_1', 'co_applicant_sex', 'hoepa_status'};
+quasi_identifiers_g = {'applicant_sex', 'county_code', 'co_applicant_race_1', 'co_applicant_sex', 'lien_status'};
 
 sensitive_column_g = 'applicant_race_1';
 
